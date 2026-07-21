@@ -1,0 +1,7 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - workload.yaml
+  - network-policies.yaml
+commonLabels:
+  portfolio.mogfrey.dev/example: "true"
