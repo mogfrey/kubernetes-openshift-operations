@@ -1,0 +1,35 @@
+name: Validate Kubernetes operations content
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kubernetes-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Validate Bash syntax
+        run: bash -n scripts/platform-health-check.sh
+
+      - name: Validate Kubernetes resource schemas
+        run: >-
+          docker run --rm
+          -v "$PWD:/work"
+          ghcr.io/yannh/kubeconform:v0.6.7
+          -strict
+          -summary
+          -ignore-missing-schemas
+          /work/manifests/workload.yaml
+          /work/manifests/network-policies.yaml
