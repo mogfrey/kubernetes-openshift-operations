@@ -31,7 +31,12 @@ if ! "${KUBECTL[@]}" version --request-timeout=10s >/dev/null 2>&1; then
   exit 2
 fi
 
-CURRENT_CONTEXT=$("${KUBECTL[@]}" config current-context 2>/dev/null || true)
+if [[ -n "$KUBE_CONTEXT" ]]; then
+  CURRENT_CONTEXT="$KUBE_CONTEXT"
+else
+  CURRENT_CONTEXT=$(kubectl config current-context 2>/dev/null || true)
+fi
+
 section "Context"
 printf 'Context: %s\n' "${CURRENT_CONTEXT:-unknown}"
 printf 'Namespace scope: %s\n' "${NAMESPACE:-all namespaces}"
@@ -90,20 +95,20 @@ section "Recent warning events"
   --field-selector type=Warning \
   --sort-by='.lastTimestamp' 2>/dev/null | tail -n "$MAX_EVENTS" || true
 
-if "${KUBECTL[@]}" api-resources --api-group=config.openshift.io -o name 2>/dev/null | grep -qx clusteroperators; then
+if "${KUBECTL[@]}" api-resources --api-group=config.openshift.io -o name 2>/dev/null | grep -q '^clusteroperators'; then
   section "OpenShift ClusterOperators"
-  "${KUBECTL[@]}" get clusteroperators
+  "${KUBECTL[@]}" get clusteroperators.config.openshift.io
 
-  OPERATOR_ISSUES=$("${KUBECTL[@]}" get clusteroperators -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{range .status.conditions[?(@.type=="Available")]}{.status}{end}{"\t"}{range .status.conditions[?(@.type=="Degraded")]}{.status}{end}{"\n"}{end}' | awk '$2 != "True" || $3 == "True" {print}' || true)
+  OPERATOR_ISSUES=$("${KUBECTL[@]}" get clusteroperators.config.openshift.io -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{range .status.conditions[?(@.type=="Available")]}{.status}{end}{"\t"}{range .status.conditions[?(@.type=="Degraded")]}{.status}{end}{"\n"}{end}' | awk '$2 != "True" || $3 == "True" {print}' || true)
   if [[ -n "$OPERATOR_ISSUES" ]]; then
     printf '%s\n' "$OPERATOR_ISSUES"
     warn "One or more OpenShift ClusterOperators are unavailable or degraded."
   fi
 fi
 
-if "${KUBECTL[@]}" api-resources --api-group=machineconfiguration.openshift.io -o name 2>/dev/null | grep -qx machineconfigpools; then
+if "${KUBECTL[@]}" api-resources --api-group=machineconfiguration.openshift.io -o name 2>/dev/null | grep -q '^machineconfigpools'; then
   section "OpenShift MachineConfigPools"
-  "${KUBECTL[@]}" get machineconfigpools
+  "${KUBECTL[@]}" get machineconfigpools.machineconfiguration.openshift.io
 fi
 
 section "Result"
